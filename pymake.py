@@ -12,6 +12,10 @@ class MakeRecord:
         self.index = 0
         self.FileRecordList = []
         self.main_file = ""
+        self.compile_cmd = '\n\tg++ -g -Wall -Werror -std=c++11 -'
+        self.clean_cmd = 'clean:\n\trm -fr *.o\n'
+        self.dot_o = '.o'
+        self.dot_c = '.c'
 
     def return_file_record(self):
         return self.FileRecordList
@@ -31,7 +35,7 @@ class FileRecord:
         self.prefix = filename
         self.ext = file_ext
         self.index = 0
-        main_f = False
+        self.main_f = False
 
     def __iter__(self):
         return self
@@ -50,9 +54,17 @@ class FileRecord:
 
     def get_dependencies(self):
         return self.dependencies
+
+    def write_dependencies(self):
+        for x in self.dependencies:
+            print(x + ' ')
+        print('\n')
     
     def id_main(self):
-        main_f = True
+        self.main_f = True
+
+    def is_main(self):
+        return self.main_f
 
 def too_many_args():
         sys.stderr.write("\nError: More than one instance of main in directory..\n")
@@ -89,7 +101,7 @@ def strip_include(str):
     str = str.replace('#include ', '')
     str = str.replace('"', '')
     str = str.replace("'", "")
-    str = str.replace('\\n', '')
+    str = str.replace('\n', '')
     print("str is: " + str)
     return str
 
@@ -174,33 +186,41 @@ def extract_files(proj_files):
 
 def make_Makefile(M_Record):
     """Write Makefile"""
-    project_name = sys.argv[1] 
-    dot_o = '.o'
-    dot_c = '.c'
-    compile_cmd = '\tg++ -g -Wall -Werror -std=c++11 -'
-    clean_cmd = 'clean:\n\trm -fr *.o\n'
-    print("Main: " + M_Record.main_file + "\n")
+    project_name = sys.argv[1]
     f = open('Makefile', 'w')
     f.write(project_name + ": ")
-    f.write(M_Record.main_file + dot_o)
-    i = 0
+    f.write(M_Record.main_file + M_Record.dot_o + ' ')
+
     ff = M_Record.return_file_record()
+    for ffa in ff:
+        #FIXME: treat e better -> it is very important
+        e = ff.pop(0)
+        for d in e.dependencies:
+            #hpp = ".hpp"
+            if strip_ext(d) == '.hpp':
+                pass
+            else:
+                f.write(strip_prefix(d) + '.o ')
+        f.write(M_Record.compile_cmd)
 
-    #print("d is " + d)
-        #f.write(d + dot_o + ' ')
-    f.write(compile_cmd + 'o ' + project_name + ' ' + M_Record.main_file)
-    for t in M_Record.FileRecordList:
-        t = strip_prefix(t)
-        f.write(t + dot_o + ' ')
-    f.write('\n' + clean_cmd)
+        f.write(project_name + ' ' + M_Record.main_file + '.o ')
+        for t in e.dependencies:
+            if strip_ext(t) == '.hpp':
+                pass
+            else:
+                f.write(strip_prefix(t) + '.o ')
+        f.write('\n\n')
+
+
+    #e = ff.pop(0)
+
+    #for z in e.dependencies:
+        #if strip_ext(z) == '.hpp':
+          #  pass
+        #else:
+            #f.write(strip_prefix(z) + '.o: ' + strip_prefix(z) + '.cpp')
+
     f.close()
-
-def print_deps(fr):
-    print('dependencies: \n')
-    for e in fr.dependencies:
-        print(e)
-
-
 
 if __name__ == "__main__":
     path = get_args()

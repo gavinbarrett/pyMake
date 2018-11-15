@@ -48,7 +48,7 @@ class FileRecord:
 
     def add_depend(self, str):
         self.dependencies.append(str)
-    
+
     def print_name(self):
         print(self.name)
 
@@ -59,7 +59,7 @@ class FileRecord:
         for x in self.dependencies:
             print(x + ' ')
         print('\n')
-    
+
     def id_main(self):
         self.main_f = True
 
@@ -178,7 +178,7 @@ def extract_files(proj_files):
         else:
             MasterMakeRecord.add_to_file_record(fr)
     if main_instances > 1:
-        too_many_args() 
+        too_many_args()
     if main_instances < 1:
         not_enough_args()
 
@@ -189,41 +189,36 @@ def make_Makefile(M_Record):
     project_name = sys.argv[1]
     f = open('Makefile', 'w')
     f.write(project_name + ": ")
-    f.write(M_Record.main_file + M_Record.dot_o + ' ')
+    #f.write(M_Record.main_file + M_Record.dot_o + ' ')
 
-    ff = M_Record.return_file_record()
-    for ffa in ff:
-        #FIXME: treat e better -> it is very important
-        e = ff.pop(0)
+    fr1 = M_Record.return_file_record()
+    fr2 = fr1[:]
+
+    while fr1:
+        e = fr1.pop(0)
         for d in e.dependencies:
-            #hpp = ".hpp"
+            #FIXME: create function that returns list of .cc/.cpp files suitable for file
             if strip_ext(d) == '.hpp':
                 pass
             else:
                 f.write(strip_prefix(d) + '.o ')
-        f.write(M_Record.compile_cmd)
 
-        f.write(project_name + ' ' + M_Record.main_file + '.o ')
-        for t in e.dependencies:
-            if strip_ext(t) == '.hpp':
+    f.write(M_Record.compile_cmd)
+    while fr2:
+        e = fr2.pop(0)
+        for d in e.dependencies:
+            if strip_ext(d) == '.hpp':
                 pass
             else:
-                f.write(strip_prefix(t) + '.o ')
-        f.write('\n\n')
+                f.write(strip_prefix(d) + '.o ')
 
-
-    #e = ff.pop(0)
-
-    #for z in e.dependencies:
-        #if strip_ext(z) == '.hpp':
-          #  pass
-        #else:
-            #f.write(strip_prefix(z) + '.o: ' + strip_prefix(z) + '.cpp')
-
+            f.write('\n')
+        f.write(M_Record.compile_cmd)
     f.close()
 
 if __name__ == "__main__":
     path = get_args()
+    #FIXME: implement fix for list of files being passed in
     dirs = list_files(path) # returns valid .cpp/.hpp/.cc files
     MakeR = extract_files(dirs)
     make_Makefile(MakeR)

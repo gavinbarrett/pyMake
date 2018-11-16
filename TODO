@@ -1,5 +1,4 @@
 As of 11-16-18
-- Make files compatible with both .cpp and .cc files
 - Build compatibility for files without intermediate binaries
 - Build compatibility with multiple executables
 - Add parser to statements and .cc/.cpp/.h/.hpp files

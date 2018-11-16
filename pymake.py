@@ -123,7 +123,7 @@ def is_main(file):
 def filter_files(dirs):
     """Filter out results to only .\wpp files"""
     #Looking for .cpp and .hpp files; later we will add .c/.h compatibility
-    ccregex = re.compile('\.cc')
+    ccregex = re.compile('.*\.cc$')
     regex = re.compile('\w+\.\wpp')
     main_re = re.compile('int main')
     filtered = []
@@ -199,12 +199,10 @@ def extract_hfiles(filerecord):
             hlist.append(d)
     return hlist
 
-def build_list(main, list):
+def build_list(list):
     newstring = ""
-    newstring += main + '.o '
     for l in list:
-        newstring += strip_prefix(l) + '.o'
-        newstring += ' '
+        newstring += l + '.o '
     return newstring
 
 def make_Makefile(M_Record):
@@ -216,11 +214,16 @@ def make_Makefile(M_Record):
 
     fr1 = M_Record.return_file_record()
     fr2 = fr1[:]
+    fr3 = fr1[:]
 
 
     e = fr1.pop(0)
-    clist = extract_cfiles(e)
-    newstring = build_list(e.prefix, clist)
+    clist = []
+    while fr3:
+        d = fr3.pop(0)
+        clist.append(d.prefix)
+
+    newstring = build_list(clist)
     f.write(newstring)
 
     f.write(M_Record.compile_cmd + 'o ' + project_name + ' ' + newstring + '\n\n')
@@ -252,7 +255,7 @@ def make_Makefile(M_Record):
             f.write(c + ' ')
         f.write('\n\n')
 
-    f.write(M_Record.clean_cmd + project_name + ' *.o')
+    f.write(M_Record.clean_cmd + project_name + ' *.o\n')
 
 
 if __name__ == "__main__":

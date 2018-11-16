@@ -13,7 +13,7 @@ class MakeRecord:
         self.FileRecordList = []
         self.main_file = ""
         self.compile_cmd = '\n\tg++ -g -Wall -Werror -std=c++11 -'
-        self.clean_cmd = 'clean:\n\trm -fr *.o\n'
+        self.clean_cmd = 'clean:\n\trm -fr '
         self.dot_o = '.o'
         self.dot_c = '.c'
 
@@ -102,7 +102,6 @@ def strip_include(str):
     str = str.replace('"', '')
     str = str.replace("'", "")
     str = str.replace('\n', '')
-    print("str is: " + str)
     return str
 
 def check_main(file_rec):
@@ -170,7 +169,7 @@ def extract_files(proj_files):
                 line = strip_include(line)
                 fr.dependencies.append(line)
                 #With the way our regex is set, group(3) will be the filename
-                print(result.group(3))
+                #print(result.group(3))
         obj.close()
         if is_main(f):
             #error occuring
@@ -184,6 +183,30 @@ def extract_files(proj_files):
 
     return MasterMakeRecord
 
+def extract_cfiles(filerecord):
+    clist = []
+    for d in filerecord.dependencies:
+        extension = strip_ext(d)
+        if extension == '.cpp' or extension == '.cc':
+            clist.append(d)
+    return clist
+
+def extract_hfiles(filerecord):
+    hlist = []
+    for d in filerecord.dependencies:
+        extension = strip_ext(d)
+        if extension == '.hpp' or extension == '.h':
+            hlist.append(d)
+    return hlist
+
+def build_list(main, list):
+    newstring = ""
+    newstring += main + '.o '
+    for l in list:
+        newstring += strip_prefix(l) + '.o'
+        newstring += ' '
+    return newstring
+
 def make_Makefile(M_Record):
     """Write Makefile"""
     project_name = sys.argv[1]
@@ -194,27 +217,43 @@ def make_Makefile(M_Record):
     fr1 = M_Record.return_file_record()
     fr2 = fr1[:]
 
-    while fr1:
-        e = fr1.pop(0)
-        for d in e.dependencies:
-            #FIXME: create function that returns list of .cc/.cpp files suitable for file
-            if strip_ext(d) == '.hpp':
-                pass
-            else:
-                f.write(strip_prefix(d) + '.o ')
 
-    f.write(M_Record.compile_cmd)
+    e = fr1.pop(0)
+    clist = extract_cfiles(e)
+    newstring = build_list(e.prefix, clist)
+    f.write(newstring)
+
+    f.write(M_Record.compile_cmd + 'o ' + project_name + ' ' + newstring + '\n\n')
+
+    e = fr2.pop(0)
+    f.write(e.prefix + '.o: ' + e.name + ' ')
+    clist = extract_cfiles(e)
+    hlist = extract_hfiles(e)
+    for cfile in clist:
+        f.write(cfile + ' ')
+    for hfile in hlist:
+        f.write(hfile + ' ')
+    f.write(M_Record.compile_cmd + 'c ')
+    f.write(e.name + ' ')
+    for c3 in clist:
+        f.write(c3 + ' ')
+    f.write('\n\n')
     while fr2:
         e = fr2.pop(0)
-        for d in e.dependencies:
-            if strip_ext(d) == '.hpp':
-                pass
-            else:
-                f.write(strip_prefix(d) + '.o ')
+        clist = extract_cfiles(e)
+        hlist = extract_hfiles(e)
+        f.write(e.prefix + '.o: ' + e.name + ' ')
+        for x1 in clist:
+            f.write(x1 + ' ')
+        for x2 in hlist:
+            f.write(x2 + ' ')
+        f.write(M_Record.compile_cmd + 'c ' + e.name + ' ')
+        for c in clist:
+            f.write(c + ' ')
+        f.write('\n\n')
 
-            f.write('\n')
-        f.write(M_Record.compile_cmd)
-    f.close()
+    f.write(M_Record.clean_cmd + project_name + ' *.o')
+
 
 if __name__ == "__main__":
     path = get_args()

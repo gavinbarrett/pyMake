@@ -66,6 +66,13 @@ class FileRecord:
     def is_main(self):
         return self.main_f
 
+def build_multiple(MasterMakeRecord):
+    """ This function will be for building multiple executables """
+    print("More than one instance of main. Multiple executable compatibility has not yet been implemented yet.\n")
+    print("Exiting PyMake...\n")
+    sys.exit(0)
+
+
 def too_many_args():
         sys.stderr.write("\nError: More than one instance of main in directory..\n")
         sys.stderr.write("Exiting PyMake..\n\n")
@@ -81,7 +88,13 @@ def  get_args():
     """Read in arguments from cli"""
     try:
         path = sys.argv[2]
-        return path
+        #if second argument is a directory, initiate build stage 1
+        #if second argument is a file, initiate build stage 2
+        if os.path.isdir(path):
+            return path
+        else:
+            return sys.argv
+
     except:
         print('Argument error')
         sys.exit(0)
@@ -105,6 +118,7 @@ def strip_include(str):
     return str
 
 def check_main(file_rec):
+    """Check to see if our file contains an instance of 'int main()'"""
     if file_rec.main_f == True:
         return True
     return False
@@ -140,6 +154,10 @@ def filter_files(dirs):
 def list_files(path):
     """Get list of files in the directory specified"""
     #use try block for now; come back and refactor
+
+    #check if path is a directory
+    #if not, and it is a list of files, then enter build stage 1
+
     try:
         dirs = os.listdir(path)
         filtered = filter_files(dirs)
@@ -176,14 +194,17 @@ def extract_files(proj_files):
             MasterMakeRecord.insert_zero_file_record(fr)
         else:
             MasterMakeRecord.add_to_file_record(fr)
+    #handle with options to build multiple executables (build stage 3?)
     if main_instances > 1:
-        too_many_args()
+        #enter build stage 3
+        build_multiple(MasterMakeRecord)
     if main_instances < 1:
         not_enough_args()
 
     return MasterMakeRecord
 
 def extract_cfiles(filerecord):
+    """Returns list of .cc/.cpp filenames"""
     clist = []
     for d in filerecord.dependencies:
         extension = strip_ext(d)
@@ -192,6 +213,7 @@ def extract_cfiles(filerecord):
     return clist
 
 def extract_hfiles(filerecord):
+    """Returns list of .h/.hpp filenames"""
     hlist = []
     for d in filerecord.dependencies:
         extension = strip_ext(d)
@@ -200,67 +222,96 @@ def extract_hfiles(filerecord):
     return hlist
 
 def build_list(list):
+    """Returns string of filenames with .o extension"""
     newstring = ""
     for l in list:
         newstring += l + '.o '
     return newstring
 
-def make_Makefile(M_Record):
-    """Write Makefile"""
-    project_name = sys.argv[1]
-    f = open('Makefile', 'w')
-    f.write(project_name + ": ")
-    #f.write(M_Record.main_file + M_Record.dot_o + ' ')
 
-    fr1 = M_Record.return_file_record()
-    fr2 = fr1[:]
-    fr3 = fr1[:]
-
-
-    e = fr1.pop(0)
+def write_heading(fstream, filerecord, project_name):
+    """This function writes the executable's build portion as well as the .cc/.cpp file which contains main()"""
+    compile_cmd = '\n\tg++ -g -Wall -Werror -std=c++11 -'
+    #Write executable instructions; copy filerecord for for duplicability
+    filerecord1 = filerecord[:]
+    filerecord2 = filerecord[:]
     clist = []
-    while fr3:
-        d = fr3.pop(0)
+
+    fstream.write(project_name + ": ")
+    while filerecord1:
+        d = filerecord1.pop(0)
         clist.append(d.prefix)
 
     newstring = build_list(clist)
-    f.write(newstring)
+    fstream.write(newstring)
+    fstream.write(compile_cmd + 'o ' + project_name + ' ' + newstring + '\n\n')
 
-    f.write(M_Record.compile_cmd + 'o ' + project_name + ' ' + newstring + '\n\n')
-
-    e = fr2.pop(0)
-    f.write(e.prefix + '.o: ' + e.name + ' ')
+    #Write main() file instructions
+    e = filerecord2.pop(0)
+    fstream.write(e.prefix + '.o: ' + e.name + ' ')
     clist = extract_cfiles(e)
     hlist = extract_hfiles(e)
     for cfile in clist:
-        f.write(cfile + ' ')
+        fstream.write(cfile + ' ')
     for hfile in hlist:
-        f.write(hfile + ' ')
-    f.write(M_Record.compile_cmd + 'c ')
-    f.write(e.name + ' ')
+        fstream.write(hfile + ' ')
+    fstream.write(compile_cmd + 'c ')
+    fstream.write(e.name + ' ')
     for c3 in clist:
-        f.write(c3 + ' ')
-    f.write('\n\n')
-    while fr2:
-        e = fr2.pop(0)
+        fstream.write(c3 + ' ')
+    fstream.write('\n\n')
+
+
+def write_dependencies(fstream, filerecord):
+    """Write files used alongside main file to build executable"""
+    compile_cmd = '\n\tg++ -g -Wall -Werror -std=c++11 -'
+    while filerecord:
+        e = filerecord.pop(0)
         clist = extract_cfiles(e)
         hlist = extract_hfiles(e)
-        f.write(e.prefix + '.o: ' + e.name + ' ')
+        fstream.write(e.prefix + '.o: ' + e.name + ' ')
         for x1 in clist:
-            f.write(x1 + ' ')
+            fstream.write(x1 + ' ')
         for x2 in hlist:
-            f.write(x2 + ' ')
-        f.write(M_Record.compile_cmd + 'c ' + e.name + ' ')
+            fstream.write(x2 + ' ')
+        fstream.write(compile_cmd + 'c ' + e.name + ' ')
         for c in clist:
-            f.write(c + ' ')
-        f.write('\n\n')
+            fstream.write(c + ' ')
+        fstream.write('\n\n')
 
-    f.write(M_Record.clean_cmd + project_name + ' *.o\n')
+def write_clean_rule(fstream, project_name):
+    """Write a clean rule in order to delete executable and any intermediary files"""
+    clean_cmd = 'clean:\n\trm -fr '
+    fstream.write(clean_cmd + project_name + ' *.o\n')
 
+def make_Makefile(M_Record):
+    """Write Makefile"""
+    project_name = sys.argv[1]
+
+    #open file
+    f = open('Makefile', 'w')
+
+    #retreive filerecord
+    file_Record = M_Record.return_file_record()
+
+    #write heading
+    write_heading(f, file_Record, project_name)
+
+    # write dependencies
+    write_dependencies(f, file_Record)
+
+    # write clean rule
+    write_clean_rule(f, project_name)
 
 if __name__ == "__main__":
+    #get arguments from cmd line
     path = get_args()
-    #FIXME: implement fix for list of files being passed in
+
+    #get files from diectory
     dirs = list_files(path) # returns valid .cpp/.hpp/.cc files
+
+    #extract information from files
     MakeR = extract_files(dirs)
+
+    #write makefile
     make_Makefile(MakeR)

@@ -2,3 +2,5 @@ As of 11-16-18
 - Build compatibility for files without intermediate binaries
 - Build compatibility with multiple executables
 - Add parser to statements and .cc/.cpp/.h/.hpp files
+- use glob.glob() to grab files
+- add flag option to run make after writing makefile
